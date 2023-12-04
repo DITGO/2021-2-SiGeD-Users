@@ -10,6 +10,7 @@ const { createUserWithPass, updateUserWithId, toggleUserStatus } = require('../S
 
 const getSingleUser = async (req, res) => {
   const { id } = req.params;
+
   try {
     const user = await User.findOne({ _id: id });
     return res.json(user);
@@ -19,33 +20,35 @@ const getSingleUser = async (req, res) => {
 };
 
 const getAllUsers = async (req, res) => {
-
   const { sector, open } = req.query;
-
   const mongoQuery = {};
 
-  if (typeof open === 'boolean')
+  if (typeof open === 'boolean' || open !== any){
     mongoQuery.open = open;
-  else if (open !== 'any')
-    mongoQuery.open = true;
+  }
 
   if (sector) {
     mongoQuery.sector = sector;
   }
 
-  const users = await User.find(mongoQuery).select({ pass: 0, temporaryPassword: 0, open: 0, updatedAt: 0, createdAt: 0, _v: 0 });
+  const users = await User.find(mongoQuery).select({ 
+    pass: 0, 
+    temporaryPassword: 0,
+    open: 0,
+    updatedAt: 0,
+    createdAt: 0,
+    _v: 0
+  });
 
   return res.status(200).json(users);
-
 };
 
 const createUser = async (req, res) => {
   const { name, email, role } = req.body;
-
   const errorMessages = validation.validate({ name, email, role });
 
   if (errorMessages.length) {
-    console.log('Error list: ', errorMessages);
+    console.error('Error list: ', errorMessages);
     return res.json({ error: errorMessages });
   }
 
@@ -59,9 +62,7 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const {
-    name, email, role, sector, image,
-  } = req.body;
+  const { name, email, role, sector, image } = req.body;
 
   const errorMessage = validation.validate({ name, email, role });
 
@@ -76,7 +77,8 @@ const updateUser = async (req, res) => {
       role,
       sector,
       image
-    })
+    });
+
     return res.json(updateReturn);
   } catch (error) {
     if (error.keyValue) {
@@ -90,7 +92,7 @@ const toggleUser = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const updateStatus = await toggleUserStatus(id)
+    const updateStatus = await toggleUserStatus(id);
     return res.json(updateStatus);
   } catch {
     return res.status(400).json({ err: 'Invalid ID' });
@@ -100,18 +102,17 @@ const toggleUser = async (req, res) => {
 const login = async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
 
-  if (user == null) {
+  if (!user) {
     return res.json({ message: 'The user does not exits.' });
   }
 
   if (await bcrypt.compare(req.body.pass, user.pass)) {
     const { id } = user;
-    const token = jwt.sign({ id }, process.env.SECRET, {
-      expiresIn: 43200,
-    });
+    const token = jwt.sign({ id }, process.env.SECRET, { expiresIn: 43200 });
 
     const profile = { ...user._doc };
     delete profile.pass;
+
     return res.json({ auth: true, token, profile });
   }
 
@@ -121,15 +122,18 @@ const login = async (req, res) => {
 const recoverPassword = async (req, res) => {
   const { email } = req.body;
   const { transporter } = mailer;
-  let user = null;
 
   const temporaryPassword = crypto.randomBytes(8).toString('hex');
 
   try {
-    user = await User.findOneAndUpdate({ email }, {
-      pass: await hash.hashPass(temporaryPassword),
-      temporaryPassword: true,
-    }, { new: true });
+    let user = await User.findOneAndUpdate(
+      { email },
+      {
+        pass: await hash.hashPass(temporaryPassword),
+        temporaryPassword: true,
+      },
+      { new: true }
+    );
 
     if (!user) {
       return res.status(404).json({ error: 'It was not possible to find an user with this email.' });
@@ -150,9 +154,7 @@ const recoverPassword = async (req, res) => {
 
 const changePassword = async (req, res) => {
   const { id } = req.params;
-  const {
-    pass,
-  } = req.body;
+  const { pass } = req.body;
 
   if (!validation.isPassValid(pass)) {
     return res.status(400).json({ error: 'Password too short' });
@@ -161,12 +163,16 @@ const changePassword = async (req, res) => {
   const newPass = await hash.hashPass(pass);
 
   try {
-    const updateReturn = await User.findOneAndUpdate({ _id: id }, {
-      pass: newPass,
-      temporaryPassword: false,
-      updatedAt: moment.utc(moment.tz('America/Sao_Paulo').format('YYYY-MM-DDTHH:mm:ss')).toDate(),
-    },
-    { new: true });
+    const updateReturn = await User.findOneAndUpdate(
+      { _id: id },
+      {
+        pass: newPass,
+        temporaryPassword: false,
+        updatedAt: moment().utc().toDate(),
+      },
+      { new: true }
+    );
+    
     delete updateReturn._doc.pass;
     return res.json(updateReturn);
   } catch (error) {
