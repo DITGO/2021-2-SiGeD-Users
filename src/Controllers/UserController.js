@@ -23,9 +23,10 @@ const getAllUsers = async (req, res) => {
   const { sector, open } = req.query;
   const mongoQuery = {};
 
-  if (typeof open === 'boolean' || open !== any){
+  if (typeof open === 'boolean')
     mongoQuery.open = open;
-  }
+  else if (open !== 'any')
+    mongoQuery.open = true;
 
   if (sector) {
     mongoQuery.sector = sector;
